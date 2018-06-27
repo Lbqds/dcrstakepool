@@ -38,8 +38,8 @@ const (
 	defaultPoolLink         = "https://forum.decred.org/threads/rfp-6-setup-and-operate-10-stake-pools.1361/"
 	defaultPublicPath       = "public"
 	defaultTemplatePath     = "views"
-	defaultRecaptchaSecret  = "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe"
-	defaultRecaptchaSitekey = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+	defaultRecaptchaSecret  = "6LeL7GAUAAAAANxXxH7Czeex0udVl0ZtBlu57gO5"
+	defaultRecaptchaSitekey = "6LeL7GAUAAAAADEm4IU1Y8DPnp3vNAjc518C9Xdb"
 	defaultSMTPHost         = ""
 	defaultMinServers       = 2
 	defaultMaxVotedAge      = 8640
@@ -547,9 +547,9 @@ func loadConfig() (*config, []string, error) {
 	// Add default wallet port for the active network if there's no port specified
 	cfg.WalletHosts = normalizeAddresses(cfg.WalletHosts, activeNetParams.WalletRPCServerPort)
 
-	if len(cfg.WalletHosts) < 2 {
-		str := "%s: you must specify at least 2 wallethosts"
-		err := fmt.Errorf(str, funcName)
+	if len(cfg.WalletHosts) < cfg.MinServers {
+		str := "%s: you must specify at least %d wallethosts"
+		err := fmt.Errorf(str, funcName, cfg.MinServers)
 		fmt.Fprintln(os.Stderr, err)
 		return nil, nil, err
 	}
@@ -612,7 +612,7 @@ func loadConfig() (*config, []string, error) {
 		// no port specified
 		cfg.StakepooldHosts = normalizeAddresses(cfg.StakepooldHosts,
 			activeNetParams.StakepooldRPCServerPort)
-		if len(cfg.StakepooldHosts) < 2 {
+		if len(cfg.StakepooldHosts) < cfg.MinServers {
 			str := "%s: you must specify at least 2 stakepooldhosts"
 			err := fmt.Errorf(str, funcName)
 			fmt.Fprintln(os.Stderr, err)

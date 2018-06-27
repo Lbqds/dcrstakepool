@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -483,6 +484,53 @@ func (controller *MainController) isAdmin(c web.C, r *http.Request) (bool, error
 	return true, nil
 }
 
+func (controller *MainController) sendMail(auth smtp.Auth, msg []byte, to []string) error {
+	conn, err := tls.Dial("tcp", controller.smtpHost, nil)
+	if err != nil {
+		log.Errorf("dial to smtp server failed, %v", err)
+		return err
+	}
+
+	host, _, _ := net.SplitHostPort(controller.smtpHost)
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		log.Errorf("create smtp client failed, %v", err)
+		return err
+	}
+	defer c.Close()
+
+	if err := c.Auth(auth); err != nil {
+		log.Errorf("smtp client auth failed, %v", err)
+		return err
+	}
+
+	if err = c.Mail(controller.smtpFrom); err != nil {
+		log.Errorf("call mail failed, %v", err)
+		return err
+	}
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			log.Errorf("call rcpt failed to %s, %v", addr, err)
+			return err
+		}
+	}
+	w, err := c.Data()
+	if err != nil {
+		log.Errorf("call data failed, %v", err)
+		return err
+	}
+	_, err = w.Write(msg)
+	if err != nil {
+		log.Errorf("write to server failed, %v", err)
+		return err
+	}
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+	return c.Quit()
+}
+
 // SendMail sends an email with the passed data using the system's SMTP
 // configuration.
 func (controller *MainController) SendMail(emailaddress string, subject string, body string) error {
@@ -511,11 +559,7 @@ func (controller *MainController) SendMail(emailaddress string, subject string, 
 		return nil
 	}
 
-	err := smtp.SendMail(controller.smtpHost, auth, controller.smtpFrom, to, msg)
-	if err != nil {
-		log.Errorf("Error sending email to %v", err)
-	}
-	return err
+	return controller.sendMail(auth, msg, to)
 }
 
 // StakepooldGetIgnoredLowFeeTickets performs a gRPC GetIgnoredLowFeeTickets
